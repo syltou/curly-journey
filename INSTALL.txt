@@ -1,0 +1,33 @@
+INSTALLATION INSTRUCTIONS
+
+== PYTHON ==
+Install Python 3.X (32-bit) from here: https://www.python.org/downloads/
+For example for Windows: https://www.python.org/ftp/python/3.6.2/python-3.6.2.exe
+
+== PACKAGES ==
+At the time this file is written there is no "official" python version of openCV for Python 3
+Instead used custom built wheels available on this website: http://www.lfd.uci.edu/~gohlke/pythonlibs/
+
+Choose packages 
+To install a package, download the corresponding *.whl file and run the following in a console (with elevated rights, etc.)
+>> pip install "*.whl"
+Be sure to use the file corresponding to your version of python and your OS
+For example for Python 3.6 and Windows 32-bit, there should be *cp36*win32* in the name
+
+To be sure everything goes smoothly, stick to these version files for now (they tend to be interdependent)
+And install them in the following order
+- Numpy, numpy-1.13.1+mkl-cp36-cp36m-win32.whl, http://www.lfd.uci.edu/~gohlke/pythonlibs/#numpy
+- OpenCV, opencv_python-3.3.0-cp36-cp36m-win32.whl, http://www.lfd.uci.edu/~gohlke/pythonlibs/#opencv
+- Scipy, scipy-0.19.1-cp36-cp36m-win32.whl, http://www.lfd.uci.edu/~gohlke/pythonlibs/#scipy
+- Matplotlib, matplotlib-2.1.0rc1-cp36-cp36m-win32.whl, http://www.lfd.uci.edu/~gohlke/pythonlibs/#matplotlib
+
+== IDE ==
+A ligth python IDE is Spyder
+You can install it directly by running
+>> pip install --upgrade spyder
+
+You might want to install/upgrade PyQT5, since it seems it won't do it by itself (even though dependencies should be installed automatically) and that can lead to annoying warnings/errors when using Spyder
+>> pip install --upgrade pyqt5
+
+The executable is located in the $PYTHON$/Scripts directory
+For example: ‪C:\Python36-32\Scripts\spyder3.exe
