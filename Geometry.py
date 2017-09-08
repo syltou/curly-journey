@@ -9,9 +9,11 @@ Created on Mon Aug 28 16:51:15 2017
 import numpy as np
 import cv2
 import math
+import sys
 import datetime
 from imgTools import show
 from scipy.interpolate import interp2d
+
 
 
 
@@ -80,13 +82,19 @@ def distortPoints(pts, distCoeffs):
     return newpts
 
 
-def undistortImage(img, cameraMatrix, distCoeffs, crop=False):
+def undistortImage(img, method, cameraMatrix=None, distCoeffs=None, mapx=None, mapy=None, crop=False):
     
-    h,  w = img.shape[:2]
-    new_cameraMatrix, roi = cv2.getOptimalNewCameraMatrix(cameraMatrix, distCoeffs, (w,h), 1, (w,h))
+    if method==1:
+        assert(cameraMatrix is not None and distCoeffs is not None)
+        h,  w = img.shape[:2]
+        new_cameraMatrix, roi = cv2.getOptimalNewCameraMatrix(cameraMatrix, distCoeffs, (w,h), 1, (w,h))
+        mapx, mapy = cv2.initUndistortRectifyMap(cameraMatrix, distCoeffs, None, new_cameraMatrix, (w,h), cv2.CV_32FC1 )
+    elif method==2:
+        assert(mapx is not None and mapy is not None)
+    else:
+        print('Error: in %s::undistortImage, second argument "method" must be 1 or 2'%(__name__))
+        return(-1)
     
-    # undistort
-    mapx, mapy = cv2.initUndistortRectifyMap(cameraMatrix, distCoeffs, None, new_cameraMatrix, (w,h), cv2.CV_32FC1 )
     new_img = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)
     
     if(crop): # crop the image
@@ -269,9 +277,12 @@ def viewRendering2(view,depth,K,new_K,R,T,undistortMap=None,distCoeffs_depth=Non
     Y = (y - K[1,2]) * depth / K[1,1]
     Z = depth
     
-    Points3D = np.array( [ np.reshape(X,X.size),
-                           np.reshape(Y,Y.size),
-                           np.reshape(Z,Z.size)]  )
+#    Points3D = np.array( [    np.reshape(X,X.size),
+#                                  np.reshape(Y,Y.size),
+#                                  np.reshape(Z,Z.size)  ])
+    Points3D = np.array( [    X.ravel(),
+                                  Y.ravel(),
+                                  Z.ravel()  ])
     
     # projection onto the new camera plane
     new_Points3D = np.dot(R,Points3D) + T
@@ -309,8 +320,8 @@ def projectForward(colour_src,depth_src,K_src,K_dst,R,T,undistortMap=None,distCo
         - K_dst is intrinsic matrix of dst camera
         - R and T are rotation matrix and translation vector between src and dst '''
     
-    colour_dst = np.zeros(colour_src.shape)
-    depth_dst = np.zeros(depth_src.shape)
+    colour_dst = np.nan*np.ones(colour_src.shape)
+    depth_dst = np.nan*np.ones(depth_src.shape)
     (h,w) = colour_src.shape[:2]
     
     if(undistortMap is not None):
@@ -328,9 +339,12 @@ def projectForward(colour_src,depth_src,K_src,K_dst,R,T,undistortMap=None,distCo
     Y = (y_src - K_src[1,2]) * depth_src / K_src[1,1]
     Z = depth_src
     
-    Points3D_src = np.array( [    np.reshape(X,X.size),
-                                  np.reshape(Y,Y.size),
-                                  np.reshape(Z,Z.size)  ])
+#    Points3D_src = np.array( [    np.reshape(X,X.size),
+#                                  np.reshape(Y,Y.size),
+#                                  np.reshape(Z,Z.size)  ])
+    Points3D_src = np.array( [    X.ravel(),
+                                  Y.ravel(),
+                                  Z.ravel()  ])
     
     # Rotation and translation to new pose
     Points3D_dst = np.dot(R,Points3D_src) + T
@@ -356,6 +370,42 @@ def projectForward(colour_src,depth_src,K_src,K_dst,R,T,undistortMap=None,distCo
 
 
 
+def fillCracks(depth,direction=1):
+    
+    if(direction==2):
+        depth = depth.T
+    
+    (h,w)=depth.shape
+    newdepth = np.copy(depth).ravel()
+#    print(newdepth)
+
+    nan_index = np.argwhere(np.isnan(newdepth)).ravel()
+#    print(nan_index)
+    newdepth[-1]=newdepth[np.argwhere(np.negative(np.isnan(newdepth)))[-1]]
+    
+    diffnan = np.diff(nan_index.ravel())
+#    print(diffnan)
+    plages = list(np.argwhere(diffnan!=1).ravel())
+    plages.append(-1)
+    
+    
+    i0 = nan_index[0]
+    for i in plages:
+#        print(i0,nan_index[i])
+        newdepth[i0:nan_index[i]+1]=newdepth[nan_index[i]+1]
+        i0 = nan_index[i+1]
+    
+    
+    newdepth = newdepth.reshape((h,w))
+    
+    if(direction==2):
+        newdepth = newdepth.T
+    
+    return newdepth
+
+
+
+
 def projectBackward(colour_src,depth_dst,K_src,K_dst,R,T,undistortMap=None,distCoeffs_src=None):
     ''' Project view and depth images to new camera 
         - colour_src and depth_src are resp. the rgb texture and the depth map of the src scene 
@@ -363,7 +413,7 @@ def projectBackward(colour_src,depth_dst,K_src,K_dst,R,T,undistortMap=None,distC
         - K_dst is intrinsic matrix of dst camera
         - R and T are rotation matrix and translation vector between src and dst '''
     
-    colour_dst = np.zeros(colour_src.shape)
+    colour_dst = np.nan*np.ones(colour_src.shape)
     (h,w) = colour_src.shape[:2]
     
     if(undistortMap is not None):
@@ -380,9 +430,12 @@ def projectBackward(colour_src,depth_dst,K_src,K_dst,R,T,undistortMap=None,distC
     Y = (y_dst - K_dst[1,2]) * depth_dst / K_dst[1,1]
     Z = depth_dst
     
-    Points3D_dst = np.array( [    np.reshape(X,X.size),
-                                  np.reshape(Y,Y.size),
-                                  np.reshape(Z,Z.size)  ])
+#    Points3D_dst = np.array( [    np.reshape(X,X.size),
+#                                  np.reshape(Y,Y.size),
+#                                  np.reshape(Z,Z.size)  ])
+    Points3D_dst = np.array( [    X.ravel(),
+                                  Y.ravel(),
+                                  Z.ravel()  ])
     
     
     
@@ -393,7 +446,7 @@ def projectBackward(colour_src,depth_dst,K_src,K_dst,R,T,undistortMap=None,distC
     x_src = Points3D_src[0] * K_src[0,0] / Points3D_src[2] + K_src[0,2]
     y_src = Points3D_src[1] * K_src[1,1] / Points3D_src[2] + K_src[1,2]
     
-    # create a mask with only position inside the dst image
+    # create a mask with only position inside the src image
     filt = np.logical_and( np.logical_and( x_src>=-.5, x_src<w-.5), np.logical_and( y_src>=-.5, y_src<h-.5))
     # apply mask on both the original set of coordinates and their corresponding projections
     x_dst = x_dst.ravel()[filt]

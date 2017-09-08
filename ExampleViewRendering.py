@@ -9,7 +9,7 @@ import cv2
 #import matplotlib.pyplot as plt
 import numpy as np
 from pprint import pprint
-from Geometry import viewRendering, viewRendering2, viewRenderingFast, eulerAnglesToRotationMatrix, projectForward, projectBackward
+from Geometry import viewRendering, viewRendering2, viewRenderingFast, eulerAnglesToRotationMatrix, projectForward, projectBackward, fillCracks
 from imgTools import show
 
 import math
@@ -50,7 +50,7 @@ T0 = np.zeros((3,1))
 
 R = np.eye(3)
 T = np.zeros((3,1))
-T[0,0]=5
+T[0,0]=1.5
 
 
 R = eulerAnglesToRotationMatrix([0,1.5,0])
@@ -65,9 +65,9 @@ scale = .5
 
 
 
-D = cv2.imread(u"..//..//Task//D_original.png")
+D = cv2.imread(u".//D_original.png")
 D = D[:,:,0]
-V = cv2.imread(u"..//..//Task//V_original.png")
+V = cv2.imread(u".//V_original.png")
 
 D = cv2.resize(D,None,fx=scale, fy=scale, interpolation = cv2.INTER_LINEAR)
 V = cv2.resize(V,None,fx=scale, fy=scale, interpolation = cv2.INTER_LINEAR)
@@ -82,7 +82,7 @@ D = Znear + (Zfar - Znear)*(D-np.min(D))/(np.max(D)-np.min(D))
 
 (h,w) = D.shape
 
-show(D,'depth')
+show(D,'depth',shownan=True)
 show(V,'texture')
 
 #start = datetime.datetime.now()
@@ -91,14 +91,29 @@ show(V,'texture')
 #show(D2,'toto')
 
 start = datetime.datetime.now()
-V2,D2 = projectForward(V,D,K_original,K_virtual,R,T)
-D3    = projectBackward(D,D2,K_original,K_virtual,R,T)
+V2, D2 = projectForward(V,D,K_original,K_virtual,R,T)
 print(datetime.datetime.now()-start)
-show(V2,'forward project')
-show(D2,'forward project')
-show(D3,'backward project')
+
+start = datetime.datetime.now()
+D3 = fillCracks(D2,2)
+print(datetime.datetime.now()-start)
+
+
+start = datetime.datetime.now()
+V3 = projectBackward(V,D3,K_original,K_virtual,R,T)
+print(datetime.datetime.now()-start)
+
+
+
+show(D2,'simple projection',shownan=True)
+show(D3,'cracks filled',shownan=True)
+
+
+show(V2,'forward projection',shownan=True)
+show(V3,'backward projection',shownan=True)
 
 #show(np.log10(1+np.abs(V2-V3)),'diff')
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+

@@ -14,7 +14,7 @@ import numpy as np
 
 
 
-def show( img, winName=None, norm=True, stats=True, scale=1.0, height=None, width=None, position=(0,0), interp=cv2.INTER_LINEAR):
+def show( img, winName=None, norm=True, stats=True, scale=1.0, height=None, width=None, position=(0,0), interp=cv2.INTER_LINEAR, shownan=False):
 
     if winName is None:        
         winName = '['+id_generator()+']' 
@@ -32,16 +32,29 @@ def show( img, winName=None, norm=True, stats=True, scale=1.0, height=None, widt
                 img = cv2.resize(img,(int(scale*img.shape[1]),int(scale*img.shape[0])),0,0,interp )
 
 
-    if stats is True:
+    if stats:
         winName = winName + '%s, %d channels, range: [%.1f,%.1f] %s' % (
                         ' (Zoom: %dx%d)'%(img.shape[1],img.shape[0]) if (scale!=1 or height!=None or width!=None) else '',
                         img.shape[2] if len(img.shape)>2 else 1,
-                        img.min(), img.max(),
-                        'normalized to %s for display'%('[0,255]' if img.dtype=='uint8' else '[0,1]') if norm==True
-                            else 'values outside %s are not displayed'%('[0,255]' if img.dtype=='uint8' else '[0,1]') )    
+                        np.nanmin(img), np.nanmax(img),
+                        'normalized to %s for display.'%('[0,255]' if img.dtype=='uint8' else '[0,1]') if norm==True
+                            else 'values outside %s are not displayed.'%('[0,255]' if img.dtype=='uint8' else '[0,1]') )    
+    
+
+    if shownan:
+        if(len(img.shape)==2):
+            img=np.concatenate((img[:,:,np.newaxis],img[:,:,np.newaxis],img[:,:,np.newaxis]),2)
         
-    if norm==True:
+        nanindex = np.argwhere(np.isnan(img))
+        if(len(nanindex)>0):
+            img[nanindex[:,0],nanindex[:,1],2]=np.nanmax(img)
+            
+        winName = winName + ' NaN values are shown in red.'
+
+            
+    if norm:
         img = normalize(img)
+    
         
     ret = cv2.getWindowProperty(winName,cv2.WND_PROP_AUTOSIZE)
     if(ret==-1):
@@ -63,7 +76,7 @@ def displayAll():
     
 def normalize(img,new_min=0,new_max=1):
 
-    img = (img - img.min())/(img.max()-img.min())
+    img = (img - np.nanmin(img))/(np.nanmax(img)-np.nanmin(img))
     img = img*(new_max-new_min)+new_min
     return img
     
